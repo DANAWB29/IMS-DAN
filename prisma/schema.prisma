@@ -9,22 +9,409 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  STORE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  LEAVE
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT
+}
+
+enum PaymentStatus {
+  PAID
+  UNPAID
+  PARTIAL
+}
+
+enum StockMovementType {
+  STOCK_IN
+  STOCK_OUT
+  SALE
+  RETURN
+  ADJUSTMENT
+}
+
+enum NotificationType {
+  LOW_STOCK
+  EXPIRY
+  SYSTEM
+}
+
+model Role {
+  id   String   @id @default(uuid())
+  name UserRole @unique
+
+  users User[]
+
+  createdAt DateTime @default(now())
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      String   @default("store")
+  id String @id @default(uuid())
+
+  fullName String
+
+  email String @unique
+
+  password String
+
+  isActive Boolean @default(true)
+
+  lastLogin DateTime?
+
+  roleId String
+
+  role Role @relation(fields: [roleId], references: [id])
+
   createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  isDeleted     Boolean        @default(false)
+  notifications Notification[]
+  activityLogs  ActivityLog[]
+}
+
+model Employee {
+  id String @id @default(uuid())
+
+  firstName String
+  lastName  String
+
+  phone String? @unique
+  email String? @unique
+
+  address String?
+
+  salary Decimal @db.Decimal(10, 2)
+
+  branchId String?
+
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  hireDate DateTime
+
+  isActive Boolean @default(true)
+
+  attendances Attendance[]
+
+  sales Sale[]
+
+  stockMovements StockMovement[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  isDeleted Boolean @default(false)
+}
+
+model Attendance {
+  id String @id @default(uuid())
+
+  employeeId String
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  date DateTime
+
+  checkIn DateTime?
+
+  checkOut DateTime?
+
+  status AttendanceStatus
+
+  createdAt DateTime @default(now())
+
+  isDeleted Boolean @default(false)
+
+  @@index([date])
+}
+
+model Supplier {
+  id String @id @default(uuid())
+
+  name String @unique
+
+  phone String?
+
+  email String? @unique
+
+  address String?
+
+  batches Batch[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  isDeleted Boolean @default(false)
+}
+
+model Batch {
+  id String @id @default(uuid())
+
+  batchNumber String @unique
+
+  quantity Int
+
+  buyingPrice Decimal @db.Decimal(10, 2)
+
+  expiryDate DateTime?
+
+  productId String
+
+  supplierId String
+
+  product Product @relation(fields: [productId], references: [id])
+
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+
+  stockMovements StockMovement[]
+
+  createdAt DateTime @default(now())
+
+  isDeleted Boolean @default(false)
+}
+
+model Category {
+  id String @id @default(uuid())
+
+  name String @unique
+
+  description String?
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  isDeleted Boolean @default(false)
 }
 
 model Product {
-  id        String @id @default(uuid())
-  name      String
-  sku       String @unique
-  price     Float
-  quantity  Int
+  id String @id @default(uuid())
+
+  name String @unique
+
+  barcode String? @unique
+
+  sku String @unique
+
+  description String?
+
+  sellingPrice Decimal @db.Decimal(10, 2)
+
+  costPrice Decimal @db.Decimal(10, 2)
+
+  batches Batch[]
+
+  saleItems SaleItem[]
+
+  minimumStock Int
+
+  unit String
+
+  image String?
+
+  categoryId String
+
+  category Category @relation(fields: [categoryId], references: [id])
+
   createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  stockMovements StockMovement[]
+
+  isDeleted Boolean @default(false)
+
+  @@index([name])
+  @@index([sku])
+  @@index([barcode])
+}
+
+model StockMovement {
+  id String @id @default(uuid())
+
+  type StockMovementType
+
+  quantity Int
+
+  reason String?
+
+  batchId String
+
+  productId String
+
+  employeeId String?
+
+  batch Batch @relation(fields: [batchId], references: [id])
+
+  product Product @relation(fields: [productId], references: [id])
+
+  employee Employee? @relation(fields: [employeeId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  isDeleted Boolean @default(false)
+
+  @@index([createdAt])
+  @@index([productId])
+}
+
+model Customer {
+  id String @id @default(uuid())
+
+  name String
+
+  phone String? @unique
+
+  email String?
+
+  address String?
+
+  sales Sale[]
+
+  createdAt DateTime @default(now())
+
+  isDeleted Boolean @default(false)
+}
+
+model Sale {
+  id String @id @default(uuid())
+
+  customerId String?
+
+  employeeId String
+
+  paymentMethod PaymentMethod
+
+  paymentStatus PaymentStatus
+
+  total Decimal @db.Decimal(10, 2)
+
+  discount Decimal @db.Decimal(10, 2)
+
+  tax Decimal @db.Decimal(10, 2)
+
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  items SaleItem[]
+
+  createdAt DateTime @default(now())
+
+  isDeleted Boolean @default(false)
+
+  @@index([createdAt])
+}
+
+model SaleItem {
+  id String @id @default(uuid())
+
+  saleId String
+
+  productId String
+
+  quantity Int
+
+  price Decimal @db.Decimal(10, 2)
+
+  sale Sale @relation(fields: [saleId], references: [id])
+
+  product Product @relation(fields: [productId], references: [id])
+
+  isDeleted Boolean @default(false)
+}
+
+model Notification {
+  id String @id @default(uuid())
+
+  userId String?
+
+  user User? @relation(fields: [userId], references: [id])
+
+  title String
+
+  message String
+
+  type NotificationType
+
+  isRead Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  isDeleted Boolean @default(false)
+}
+
+model ActivityLog {
+  id String @id @default(uuid())
+
+  action String
+
+  userId String?
+
+  user User? @relation(fields: [userId], references: [id])
+
+  ipAddress String?
+
+  userAgent String?
+
+  tableName String
+
+  recordId String
+
+  description String?
+
+  createdAt DateTime @default(now())
+
+  isDeleted Boolean @default(false)
+}
+
+model Setting {
+  id String @id @default(uuid())
+
+  companyName String
+
+  companyEmail String?
+
+  companyPhone String?
+
+  companyAddress String?
+
+  currency String @default("ETB")
+
+  taxRate Float @default(15)
+
+  createdAt DateTime @default(now())
+
+  isDeleted Boolean @default(false)
+}
+
+model Branch {
+  id      String  @id @default(uuid())
+  name    String
+  address String?
+  phone   String?
+
+  employees Employee[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  isDeleted Boolean @default(false)
 }
