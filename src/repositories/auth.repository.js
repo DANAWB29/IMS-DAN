@@ -41,6 +41,9 @@ const updateLastLogin = (id) => {
         data: {
             lastLogin: new Date(),
         },
+        include: {
+            role: true,
+        },
     });
 };
 

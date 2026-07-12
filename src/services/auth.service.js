@@ -4,6 +4,7 @@ const {
     findUserByEmail,
     findRoleByName,
     createUser,
+    updateLastLogin,
 } = require("../repositories/auth.repository");
 
 const { generateToken } = require("../utils/jwt");
@@ -57,6 +58,44 @@ const register = async (userData) => {
     };
 };
 
+const login = async ({ email, password }) => {
+
+    if (!email || !password) {
+        throw new Error("Email and password are required.");
+    }
+
+    const user = await findUserByEmail(email.toLowerCase().trim());
+
+    if (!user) {
+        throw new Error("Invalid email or password.");
+    }
+
+    if (!user.isActive) {
+        throw new Error("Account has been disabled.");
+    }
+
+    const passwordMatch = await bcrypt.compare(
+        password,
+        user.password
+    );
+
+    if (!passwordMatch) {
+        throw new Error("Invalid email or password.");
+    }
+
+    await updateLastLogin(user.id);
+
+    const token = generateToken(user);
+
+    const { password: _, ...safeUser } = user;
+
+    return {
+        token,
+        user: safeUser,
+    };
+};
+
 module.exports = {
     register,
+    login,
 };
