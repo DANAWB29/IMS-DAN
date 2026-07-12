@@ -3,3 +3,8 @@ node_modules
 .env
 
 /generated/prisma
+
+logs/
+test_e2e.js
+test_e2e.ps1
+check_login.js
