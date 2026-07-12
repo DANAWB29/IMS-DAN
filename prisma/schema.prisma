@@ -1,7 +1,7 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// ============================================================
+// INVENTORY MANAGEMENT SYSTEM - PRISMA SCHEMA
+// Production-grade normalized PostgreSQL schema
+// ============================================================
 
 generator client {
   provider = "prisma-client-js"
@@ -11,6 +11,10 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ============================================================
+// ENUMS
+// ============================================================
 
 enum UserRole {
   ADMIN
@@ -27,6 +31,8 @@ enum AttendanceStatus {
 enum PaymentMethod {
   CASH
   CREDIT
+  BANK_TRANSFER
+  MOBILE_MONEY
 }
 
 enum PaymentStatus {
@@ -41,13 +47,48 @@ enum StockMovementType {
   SALE
   RETURN
   ADJUSTMENT
+  TRANSFER
 }
 
 enum NotificationType {
   LOW_STOCK
   EXPIRY
   SYSTEM
+  SALE
+  PURCHASE
+  INFO
+  WARNING
 }
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  BROWSER
+}
+
+enum PurchaseStatus {
+  PENDING
+  RECEIVED
+  PARTIAL
+  CANCELLED
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ============================================================
+// AUTHENTICATION & AUTHORIZATION
+// ============================================================
 
 model Role {
   id   String   @id @default(uuid())
@@ -56,362 +97,598 @@ model Role {
   users User[]
 
   createdAt DateTime @default(now())
+
+  @@map("roles")
 }
 
 model User {
-  id String @id @default(uuid())
-
+  id       String  @id @default(uuid())
   fullName String
-
-  email String @unique
-
+  email    String  @unique
   password String
-
   isActive Boolean @default(true)
 
   lastLogin DateTime?
 
   roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
 
-  role Role @relation(fields: [roleId], references: [id])
+  refreshTokens  RefreshToken[]
+  passwordResets PasswordReset[]
+  sessions       Session[]
+  notifications  Notification[]
+  activityLogs   ActivityLog[]
+  auditLogs      AuditLog[]
 
   createdAt DateTime @default(now())
-
   updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
 
-  isDeleted     Boolean        @default(false)
-  notifications Notification[]
-  activityLogs  ActivityLog[]
+  @@index([email])
+  @@map("users")
 }
 
-model Employee {
-  id String @id @default(uuid())
-
-  firstName String
-  lastName  String
-
-  phone String? @unique
-  email String? @unique
-
-  address String?
-
-  salary Decimal @db.Decimal(10, 2)
-
-  branchId String?
-
-  branch Branch? @relation(fields: [branchId], references: [id])
-
-  hireDate DateTime
-
-  isActive Boolean @default(true)
-
-  attendances Attendance[]
-
-  sales Sale[]
-
-  stockMovements StockMovement[]
-
-  createdAt DateTime @default(now())
-
-  updatedAt DateTime @updatedAt
-
-  isDeleted Boolean @default(false)
-}
-
-model Attendance {
-  id String @id @default(uuid())
-
-  employeeId String
-
-  employee Employee @relation(fields: [employeeId], references: [id])
-
-  date DateTime
-
-  checkIn DateTime?
-
-  checkOut DateTime?
-
-  status AttendanceStatus
-
-  createdAt DateTime @default(now())
-
-  isDeleted Boolean @default(false)
-
-  @@index([date])
-}
-
-model Supplier {
-  id String @id @default(uuid())
-
-  name String @unique
-
-  phone String?
-
-  email String? @unique
-
-  address String?
-
-  batches Batch[]
-
-  createdAt DateTime @default(now())
-
-  updatedAt DateTime @updatedAt
-
-  isDeleted Boolean @default(false)
-}
-
-model Batch {
-  id String @id @default(uuid())
-
-  batchNumber String @unique
-
-  quantity Int
-
-  buyingPrice Decimal @db.Decimal(10, 2)
-
-  expiryDate DateTime?
-
-  productId String
-
-  supplierId String
-
-  product Product @relation(fields: [productId], references: [id])
-
-  supplier Supplier @relation(fields: [supplierId], references: [id])
-
-  stockMovements StockMovement[]
-
-  createdAt DateTime @default(now())
-
-  isDeleted Boolean @default(false)
-}
-
-model Category {
-  id String @id @default(uuid())
-
-  name String @unique
-
-  description String?
-
-  products Product[]
-
-  createdAt DateTime @default(now())
-
-  updatedAt DateTime @updatedAt
-
-  isDeleted Boolean @default(false)
-}
-
-model Product {
-  id String @id @default(uuid())
-
-  name String @unique
-
-  barcode String? @unique
-
-  sku String @unique
-
-  description String?
-
-  sellingPrice Decimal @db.Decimal(10, 2)
-
-  costPrice Decimal @db.Decimal(10, 2)
-
-  batches Batch[]
-
-  saleItems SaleItem[]
-
-  minimumStock Int
-
-  unit String
-
-  image String?
-
-  categoryId String
-
-  category Category @relation(fields: [categoryId], references: [id])
-
-  createdAt DateTime @default(now())
-
-  updatedAt DateTime @updatedAt
-
-  stockMovements StockMovement[]
-
-  isDeleted Boolean @default(false)
-
-  @@index([name])
-  @@index([sku])
-  @@index([barcode])
-}
-
-model StockMovement {
-  id String @id @default(uuid())
-
-  type StockMovementType
-
-  quantity Int
-
-  reason String?
-
-  batchId String
-
-  productId String
-
-  employeeId String?
-
-  batch Batch @relation(fields: [batchId], references: [id])
-
-  product Product @relation(fields: [productId], references: [id])
-
-  employee Employee? @relation(fields: [employeeId], references: [id])
-
-  createdAt DateTime @default(now())
-
-  isDeleted Boolean @default(false)
-
-  @@index([createdAt])
-  @@index([productId])
-}
-
-model Customer {
-  id String @id @default(uuid())
-
-  name String
-
-  phone String? @unique
-
-  email String?
-
-  address String?
-
-  sales Sale[]
-
-  createdAt DateTime @default(now())
-
-  isDeleted Boolean @default(false)
-}
-
-model Sale {
-  id String @id @default(uuid())
-
-  customerId String?
-
-  employeeId String
-
-  paymentMethod PaymentMethod
-
-  paymentStatus PaymentStatus
-
-  total Decimal @db.Decimal(10, 2)
-
-  discount Decimal @db.Decimal(10, 2)
-
-  tax Decimal @db.Decimal(10, 2)
-
-  customer Customer? @relation(fields: [customerId], references: [id])
-
-  employee Employee @relation(fields: [employeeId], references: [id])
-
-  items SaleItem[]
-
-  createdAt DateTime @default(now())
-
-  isDeleted Boolean @default(false)
-
-  @@index([createdAt])
-}
-
-model SaleItem {
-  id String @id @default(uuid())
-
-  saleId String
-
-  productId String
-
-  quantity Int
-
-  price Decimal @db.Decimal(10, 2)
-
-  sale Sale @relation(fields: [saleId], references: [id])
-
-  product Product @relation(fields: [productId], references: [id])
-
-  isDeleted Boolean @default(false)
-}
-
-model Notification {
-  id String @id @default(uuid())
-
-  userId String?
-
-  user User? @relation(fields: [userId], references: [id])
-
-  title String
-
-  message String
-
-  type NotificationType
-
-  isRead Boolean @default(false)
-
-  createdAt DateTime @default(now())
-
-  isDeleted Boolean @default(false)
-}
-
-model ActivityLog {
-  id String @id @default(uuid())
-
-  action String
-
-  userId String?
-
-  user User? @relation(fields: [userId], references: [id])
-
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
   ipAddress String?
-
   userAgent String?
-
-  tableName String
-
-  recordId String
-
-  description String?
-
   createdAt DateTime @default(now())
 
-  isDeleted Boolean @default(false)
+  @@index([token])
+  @@index([userId])
+  @@map("refresh_tokens")
 }
 
-model Setting {
-  id String @id @default(uuid())
-
-  companyName String
-
-  companyEmail String?
-
-  companyPhone String?
-
-  companyAddress String?
-
-  currency String @default("ETB")
-
-  taxRate Float @default(15)
-
+model PasswordReset {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  isDeleted Boolean @default(false)
+  @@index([token])
+  @@map("password_resets")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String?
+  userAgent String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ============================================================
+// COMPANY & BRANCH
+// ============================================================
+
+model Company {
+  id          String  @id @default(uuid())
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  logo        String?
+  website     String?
+  taxNumber   String?
+  currency    String  @default("ETB")
+  taxRate     Float   @default(15)
+  lowStockThreshold Int @default(10)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@map("companies")
 }
 
 model Branch {
   id      String  @id @default(uuid())
-  name    String
+  name    String  @unique
   address String?
   phone   String?
+  email   String?
+  isActive Boolean @default(true)
 
-  employees Employee[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  employees  Employee[]
+  warehouses Warehouse[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@map("branches")
+}
+
+model Warehouse {
+  id       String  @id @default(uuid())
+  name     String  @unique
+  location String?
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+  isActive Boolean @default(true)
+
+  stockMovements StockMovement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@map("warehouses")
+}
+
+// ============================================================
+// EMPLOYEES & ATTENDANCE
+// ============================================================
+
+model Employee {
+  id        String  @id @default(uuid())
+  firstName String
+  lastName  String
+  phone     String? @unique
+  email     String? @unique
+  address   String?
+  salary    Decimal @db.Decimal(10, 2)
+  hireDate  DateTime
+  position  String?
+  department String?
+  isActive  Boolean @default(true)
+
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+
+  attendances    Attendance[]
+  leaves         Leave[]
+  sales          Sale[]
+  stockMovements StockMovement[]
+  purchases      Purchase[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@index([email])
+  @@map("employees")
+}
+
+model Attendance {
+  id         String           @id @default(uuid())
+  employeeId String
+  employee   Employee         @relation(fields: [employeeId], references: [id])
+  date       DateTime         @db.Date
+  checkIn    DateTime?
+  checkOut   DateTime?
+  status     AttendanceStatus
+  notes      String?
+  hoursWorked Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@unique([employeeId, date])
+  @@index([date])
+  @@index([employeeId])
+  @@map("attendances")
+}
+
+model Leave {
+  id         String      @id @default(uuid())
+  employeeId String
+  employee   Employee    @relation(fields: [employeeId], references: [id])
+  startDate  DateTime
+  endDate    DateTime
+  reason     String
+  status     LeaveStatus @default(PENDING)
+  approvedBy String?
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@index([employeeId])
+  @@map("leaves")
+}
+
+// ============================================================
+// PRODUCTS & INVENTORY
+// ============================================================
+
+model Category {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+  isActive    Boolean @default(true)
+
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@map("categories")
+}
+
+model Product {
+  id           String  @id @default(uuid())
+  name         String  @unique
+  barcode      String? @unique
+  sku          String  @unique
+  description  String?
+  sellingPrice Decimal @db.Decimal(10, 2)
+  costPrice    Decimal @db.Decimal(10, 2)
+  minimumStock Int     @default(10)
+  unit         String
+  isActive     Boolean @default(true)
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  batches        Batch[]
+  saleItems      SaleItem[]
+  stockMovements StockMovement[]
+  purchaseItems  PurchaseItem[]
+  productImages  ProductImage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@index([name])
+  @@index([sku])
+  @@index([barcode])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  isPrimary Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("product_images")
+}
+
+// ============================================================
+// SUPPLIERS & PURCHASING
+// ============================================================
+
+model Supplier {
+  id      String  @id @default(uuid())
+  name    String  @unique
+  phone   String?
+  email   String? @unique
+  address String?
+  contactPerson String?
+  isActive Boolean @default(true)
+
+  batches   Batch[]
+  purchases Purchase[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@map("suppliers")
+}
+
+model Purchase {
+  id            String         @id @default(uuid())
+  purchaseNumber String        @unique
+  supplierId    String
+  supplier      Supplier       @relation(fields: [supplierId], references: [id])
+  employeeId    String?
+  employee      Employee?      @relation(fields: [employeeId], references: [id])
+  status        PurchaseStatus @default(PENDING)
+  totalAmount   Decimal        @db.Decimal(10, 2)
+  paidAmount    Decimal        @db.Decimal(10, 2) @default(0)
+  notes         String?
+  receivedAt    DateTime?
+
+  items    PurchaseItem[]
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@index([createdAt])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id         String   @id @default(uuid())
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+  quantity   Int
+  unitCost   Decimal  @db.Decimal(10, 2)
+  totalCost  Decimal  @db.Decimal(10, 2)
+  batchId    String?
+  batch      Batch?   @relation(fields: [batchId], references: [id])
+
+  @@map("purchase_items")
+}
+
+model Batch {
+  id          String    @id @default(uuid())
+  batchNumber String    @unique
+  quantity    Int
+  remainingQty Int
+  buyingPrice Decimal   @db.Decimal(10, 2)
+  expiryDate  DateTime?
+  productId   String
+  supplierId  String
+
+  product  Product  @relation(fields: [productId], references: [id])
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+
+  stockMovements StockMovement[]
+  purchaseItems  PurchaseItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@index([productId])
+  @@index([expiryDate])
+  @@map("batches")
+}
+
+model StockMovement {
+  id          String            @id @default(uuid())
+  type        StockMovementType
+  quantity    Int
+  reason      String?
+  reference   String?
+  batchId     String
+  productId   String
+  employeeId  String?
+  warehouseId String?
+
+  batch     Batch      @relation(fields: [batchId], references: [id])
+  product   Product    @relation(fields: [productId], references: [id])
+  employee  Employee?  @relation(fields: [employeeId], references: [id])
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id])
+
+  createdAt DateTime @default(now())
+  isDeleted Boolean  @default(false)
+
+  @@index([createdAt])
+  @@index([productId])
+  @@index([type])
+  @@map("stock_movements")
+}
+
+// ============================================================
+// CUSTOMERS & SALES
+// ============================================================
+
+model Customer {
+  id           String  @id @default(uuid())
+  name         String
+  phone        String? @unique
+  email        String?
+  address      String?
+  creditBalance Decimal @db.Decimal(10, 2) @default(0)
+  isActive     Boolean @default(true)
+
+  sales    Sale[]
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@map("customers")
+}
+
+model Sale {
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique
+  customerId    String?
+  customer      Customer?     @relation(fields: [customerId], references: [id])
+  employeeId    String
+  employee      Employee      @relation(fields: [employeeId], references: [id])
+  paymentMethod PaymentMethod
+  paymentStatus PaymentStatus
+  subtotal      Decimal       @db.Decimal(10, 2)
+  discount      Decimal       @db.Decimal(10, 2) @default(0)
+  tax           Decimal       @db.Decimal(10, 2) @default(0)
+  total         Decimal       @db.Decimal(10, 2)
+  paidAmount    Decimal       @db.Decimal(10, 2) @default(0)
+  notes         String?
+  isReturn      Boolean       @default(false)
+  originalSaleId String?
+
+  items    SaleItem[]
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@index([createdAt])
+  @@index([invoiceNumber])
+  @@map("sales")
+}
+
+model SaleItem {
+  id        String  @id @default(uuid())
+  saleId    String
+  productId String
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+  costPrice Decimal @db.Decimal(10, 2)
+  discount  Decimal @db.Decimal(10, 2) @default(0)
+  total     Decimal @db.Decimal(10, 2)
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
 
   isDeleted Boolean @default(false)
+
+  @@map("sale_items")
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  amount        Decimal       @db.Decimal(10, 2)
+  paymentMethod PaymentMethod
+  reference     String?
+  notes         String?
+  saleId        String?
+  purchaseId    String?
+  customerId    String?
+
+  sale     Sale?     @relation(fields: [saleId], references: [id])
+  purchase Purchase? @relation(fields: [purchaseId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  createdAt DateTime @default(now())
+  isDeleted Boolean  @default(false)
+
+  @@index([saleId])
+  @@index([purchaseId])
+  @@map("payments")
+}
+
+// ============================================================
+// EXPENSES
+// ============================================================
+
+model ExpenseCategory {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+  isActive    Boolean @default(true)
+
+  expenses Expense[]
+
+  createdAt DateTime @default(now())
+  isDeleted Boolean  @default(false)
+
+  @@map("expense_categories")
+}
+
+model Expense {
+  id          String        @id @default(uuid())
+  title       String
+  amount      Decimal       @db.Decimal(10, 2)
+  description String?
+  categoryId  String
+  category    ExpenseCategory @relation(fields: [categoryId], references: [id])
+  status      ExpenseStatus @default(PENDING)
+  receiptUrl  String?
+  expenseDate DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDeleted Boolean  @default(false)
+
+  @@index([expenseDate])
+  @@map("expenses")
+}
+
+// ============================================================
+// NOTIFICATIONS & LOGS
+// ============================================================
+
+model Notification {
+  id       String              @id @default(uuid())
+  userId   String?
+  user     User?               @relation(fields: [userId], references: [id])
+  title    String
+  message  String
+  type     NotificationType
+  channel  NotificationChannel @default(IN_APP)
+  isRead   Boolean             @default(false)
+  link     String?
+
+  createdAt DateTime @default(now())
+  isDeleted Boolean  @default(false)
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+model ActivityLog {
+  id          String  @id @default(uuid())
+  action      String
+  userId      String?
+  user        User?   @relation(fields: [userId], references: [id])
+  ipAddress   String?
+  userAgent   String?
+  tableName   String
+  recordId    String
+  description String?
+  oldValues   Json?
+  newValues   Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model AuditLog {
+  id        String @id @default(uuid())
+  userId    String?
+  user      User?  @relation(fields: [userId], references: [id])
+  action    String
+  resource  String
+  resourceId String?
+  ipAddress String?
+  userAgent String?
+  status    String
+  details   Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Setting {
+  id             String  @id @default(uuid())
+  key            String  @unique
+  value          String
+  description    String?
+  isPublic       Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model BackupLog {
+  id        String  @id @default(uuid())
+  filename  String
+  size      Int?
+  status    String
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@map("backup_logs")
 }

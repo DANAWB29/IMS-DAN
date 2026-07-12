@@ -1,24 +1,26 @@
-const express = require("express");
+'use strict';
 
-const router = express.Router();
+const router = require('express').Router();
 
-const authRoutes = require("./auth.routes");
+const authRoutes = require('./auth.routes');
+const userRoutes = require('./user.routes');
+const employeeRoutes = require('./employee.routes');
+const systemRoutes = require('./system.routes');
 
-const testRoutes = require("./test.routes");
-
-const adminRoutes = require("./admin.routes");
-
-router.get("/", (req, res) => {
+// ── API Info ─────────────────────────────────────────────────
+router.get('/', (req, res) => {
     res.json({
         success: true,
-        message: "Inventory Management System API is running.",
+        message: 'Inventory Management System API',
+        version: '1.0.0',
+        docs: '/api-docs',
     });
 });
 
-router.use("/auth", authRoutes);
-
-router.use("/test", testRoutes);
-
-router.use("/admin", adminRoutes);
+// ── Route Mounting ───────────────────────────────────────────
+router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
+router.use('/employees', employeeRoutes);
+router.use('/system', systemRoutes);
 
 module.exports = router;

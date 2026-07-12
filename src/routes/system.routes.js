@@ -1,8 +1,8 @@
-const express = require("express");
-const router = express.Router();
+'use strict';
 
-const { healthCheck } = require("../controllers/system.controller");
+const router = require('express').Router();
+const systemController = require('../controllers/system.controller');
 
-router.get("/health", healthCheck);
+router.get('/health', systemController.healthCheck);
 
 module.exports = router;
